@@ -1,0 +1,36 @@
+# Reemplazar <FQDN> por el valor real de `terraform output -raw fqdn` antes
+# de aplicar - ver README. El secret "hello-world-tls" hay que crearlo antes
+# (kubectl create secret tls, con el cert/key que salen de
+# `terraform output certificate_pem` / `certificate_private_key_pem`).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-world
+  annotations:
+    # Redirige HTTP -> HTTPS automaticamente, mismo comportamiento que el
+    # redirect_configuration que armamos a mano ayer en el POC de
+    # Container Apps - acá lo hace AGIC solo, via annotation.
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  # spec.ingressClassName (no la annotation kubernetes.io/ingress.class,
+  # deprecada) - referencia el objeto IngressClass "azure-application-gateway"
+  # que crea el addon AGIC. Con la annotation puesta al nombre del
+  # IngressClass en vez del identificador del controller, AGIC generaba solo
+  # su config default/catch-all vacia (sin hostname ni backend) - nunca
+  # procesaba este Ingress.
+  ingressClassName: azure-application-gateway
+  tls:
+    - hosts:
+        - <FQDN>
+      secretName: hello-world-tls
+  rules:
+    - host: <FQDN>
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello-world
+                port:
+                  number: 80
